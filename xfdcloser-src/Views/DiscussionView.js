@@ -54,10 +54,17 @@ function DiscussionView(model) {
 		title: "sluiten als \"behouden\"",
 		classes: ["xfdc-menuOptionWidget"]
 	} );
+	const quickWithdrawnMenuOption = new OO.ui.MenuOptionWidget( {
+		data: "quickWithdrawn",
+		label: "Ingetrokken",
+		title: "sluiten als \"ingetrokken\"",
+		classes: ["xfdc-menuOptionWidget"]
+	} );
 	const canQuickDelete = !!getRelevantResults(this.model.venue.type, this.model.userIsSysop).find(resultData => resultData.name === "delete");
 	if (canQuickDelete) {
 		this.quickCloseMenuOptions = [
 			quickKeepMenuOption,
+			quickWithdrawnMenuOption,
 			new OO.ui.MenuOptionWidget( {
 				data: "quickDelete",
 				label: "Nuweg",
@@ -66,7 +73,7 @@ function DiscussionView(model) {
 			} )
 		];
 	} else {
-		this.quickCloseMenuOptions = [ quickKeepMenuOption ];
+		this.quickCloseMenuOptions = [ quickKeepMenuOption, quickWithdrawnMenuOption ];
 	}
 
 	this.quickCloseButtonMenu = new OO.ui.ButtonMenuSelectWidget( {
@@ -84,7 +91,7 @@ function DiscussionView(model) {
 	this.buttonGroup = new OO.ui.ButtonGroupWidget({
 		items: [
 			this.closeButton,
-			//this.relistButton,
+			this.relistButton,
 		]
 	});
 	this.buttonGroup.$element.css({margin: "-1em 0"}); // Avoids excess whitespace when added to DOM
@@ -302,7 +309,12 @@ DiscussionView.newFromHeadline = function({headingIndex, context, venue, current
 	if (!listingTimestampDate) {
 		classes.push("xfdc-unknownAge");
 	} else {
-		const millisecondsSinceListing = new Date() - listingTimestampDate;
+		const now = new Date();
+		const listing = new Date(listingTimestampDate);
+		now.setHours(0, 0, 0, 0);
+		listing.setHours(0, 0, 0, 0);
+
+		const millisecondsSinceListing = now - listing;
 		const discussionRuntimeDays = 14;
 		const discussionRuntimeMilliseconds = discussionRuntimeDays * 24 * 60 * 60 * 1000;
 		isOld = millisecondsSinceListing >= discussionRuntimeMilliseconds;
