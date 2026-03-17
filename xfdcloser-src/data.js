@@ -14,6 +14,17 @@ const resultsData = [
 		actions: ["updatePages", "noActions"]
 	},
 
+	// Withdrawn
+	{
+		name: "withdrawn",
+		tag: "Nominatie ingetrokken",
+		label: "Ingetrokken",
+		allowSpeedy: false,
+		title: "Sluit beoordeling als ingetrokken",
+		venues: ["afd", "cfd", "ffd", "tfd"],
+		actions: ["updatePages", "noActions"]
+	},
+
 	// Delete
 	{
 		name: "delete",

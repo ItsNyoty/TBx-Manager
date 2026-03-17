@@ -11,12 +11,23 @@ export default class RelistInfo extends TaskItemController {
 	}
 	static today = ymdDateString(new Date());
 
+	getTodayString() {
+		if (this.model.venue.type === "afd") {
+			const now = new Date();
+			const year = now.getUTCFullYear();
+			const month = (now.getUTCMonth() + 1).toString().padStart(2, "0");
+			const day = now.getUTCDate().toString().padStart(2, "0");
+			return "/Toegevoegd " + year + month + day;
+		}
+		return RelistInfo.today;
+	}
+
 	get todaysLogpage() {
-		return this.model.venue.path + RelistInfo.today;
+		return this.model.venue.path + this.getTodayString();
 	}
 
 	get query() {
-		const queryBase = {
+		return {
 			action: "query",
 			titles: this.model.discussion.discussionPageName,
 			prop: "revisions",
@@ -24,17 +35,9 @@ export default class RelistInfo extends TaskItemController {
 			rvprop: "content|timestamp",
 			rvslots: "main",
 			curtimestamp: 1,
-			formatversion: "2"
+			formatversion: "2",
+			rvsection: this.model.discussion.sectionNumber
 		};
-		return this.model.venue.type === "afd"
-			? {	...queryBase,
-				list: "embeddedin",
-				eititle: this.model.discussion.discussionPageName,
-				einamespace: this.model.venue.ns_logpages,
-				eifilterredir: "nonredirects",
-				eilimit: 500
-			}
-			: { ...queryBase, rvsection: this.model.discussion.sectionNumber };
 	}
 
 	getRelistTemplate(content) {
@@ -58,11 +61,11 @@ export default class RelistInfo extends TaskItemController {
 
 		switch ( this.model.venue.type ) {
 		case "afd":
-			// Update link to log page
-			newWikitext = newWikitext.replace(
-				/\[\[Wikipedia:Te beoordelen pagina's\/\d{4} \w+ \d{1,2}#/,
-				"[[" + this.todaysLogpage + "#"
-			);
+			// Inline move:
+			// New text is the content (we remove English relist template if added by default above)
+			newWikitext = content.trim(); 
+			// Old text is replaced by a placeholder/link
+			oldLogWikitext = `${heading}\nVerlengd naar [[${this.todaysLogpage}#${this.model.discussion.sectionHeader}]].`;
 			break;
 		case "ffd":
 		case "tfd": {
@@ -118,8 +121,9 @@ export default class RelistInfo extends TaskItemController {
 		return { newWikitext, oldLogWikitext };
 	}
 
-	getLogInfo(embeddedinLogpage) {
+	getLogInfo() {
 		switch ( this.model.venue.type ) {
+		case "afd":
 		case "ffd":
 		case "mfd":
 			// New discussions are added to the bottom of the log page
@@ -137,17 +141,6 @@ export default class RelistInfo extends TaskItemController {
 				curtimestamp: 1,
 				formatversion: "2"
 			}).then(response => this.getNewLogInfo(response.query.pages[0], response.curtimestamp));
-		case "afd": {
-			return this.api.get({
-				action: "query",
-				titles: [embeddedinLogpage.title, this.todaysLogpage],
-				prop: "revisions",
-				rvprop: "content|timestamp",
-				rvslots: "main",
-				curtimestamp: 1,
-				formatversion: "2"
-			}).then(response => this.getTranscludingLogsInfo(response.query.pages, response.curtimestamp));
-		}
 		default: 
 			return rejection("abort", "Unknown XfD venue");
 		}
@@ -256,8 +249,7 @@ export default class RelistInfo extends TaskItemController {
 				base: response.query.pages[0].revisions[0].timestamp
 			};
 			const { newWikitext, oldLogWikitext } = this.getRelistWikitext(content);
-			let embeddedinLogpage;
-			if ( response.query.embeddedin ) {
+			if ( response.query.embeddedin && this.model.venue.type !== "afd" ) {
 				const embeddedInLogpages = response.query.embeddedin
 					.filter(ei => ei.title.includes(this.model.venue.path));
 				if ( embeddedInLogpages.length === 0 ) {
@@ -268,14 +260,13 @@ export default class RelistInfo extends TaskItemController {
 						makeLink(logpage.title, logpage.title.replace(this.model.venue.path, ""))
 					));
 				}
-				embeddedinLogpage = embeddedInLogpages[0];
 			}
-			return $.when(this.getLogInfo(embeddedinLogpage)).then(logInfo => {
+			return $.when(this.getLogInfo()).then(logInfo => {
 				if ( this.model.aborted ) {
 					return rejection("abort"); 
 				}
 				this.model.discussion.setRelistInfo({
-					today: RelistInfo.today,
+					today: this.getTodayString(),
 					discussionPageTimestamps,
 					newWikitext,
 					oldLogWikitext,

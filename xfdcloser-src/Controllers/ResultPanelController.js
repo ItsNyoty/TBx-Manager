@@ -36,7 +36,17 @@ class ResultPanelController {
 		this.rationaleFieldset.setLabel(this.model.rationaleHeading);
 		this.copyButton.toggle(this.model.showCopyButton);
 		this.rationaleTextbox.setValue(this.model.rationale);
-		this.preview.$element.html(this.model.preview);
+		
+		// Hide/Disable rationale and preview if result is 'withdrawn'
+		const isWithdrawn = this.model.singleModeResult && this.model.singleModeResult.selectedResultName === "withdrawn";
+		this.rationaleFieldset.toggle(!isWithdrawn);
+		
+		if (isWithdrawn) {
+			this.preview.$element.empty();
+		} else {
+			this.preview.$element.html(this.model.preview);
+		}
+		this.preview.$element.toggle(!isWithdrawn);
 
 		// update notes from model
 		this.notesFieldset.clearItems();

@@ -146,7 +146,7 @@ Venue.Afd = transcludedOnly => new Venue("afd", {
 		alreadyClosed:	"<!--Template:Afd bottom-->"
 	},
 	regex: {
-		nomTemplate:	/(?:{{(?:wiu|ne|wb|auteur|reclame|weg|verwijderen)(?:.|\n)*?}})\s*/g
+		nomTemplate:	/(?:{{(?:wiu|ne|wb|auteur|reclame|weg|verwijderen)(?:.|\n)*?}})\s*/gi
 	},
 	transcludedOnly:	transcludedOnly,
 	relistTasks:		["UpdateDiscussion", "UpdateOldLogPage", "UpdateNewLogPage"]

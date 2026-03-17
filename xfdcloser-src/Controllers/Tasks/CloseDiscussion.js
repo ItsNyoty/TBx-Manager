@@ -30,6 +30,25 @@ export default class CloseDiscussion extends TaskItemController {
 		);
 	};
 
+	/**
+	 * Save the current result state to localStorage so it can be restored
+	 * after the page reloads due to an edit conflict.
+	 */
+	saveStateToLocalStorage() {
+		try {
+			const result = this.model.result;
+			const data = {
+				sectionHeader: this.model.discussion.sectionHeader,
+				rationale: result.rationale || "",
+				selectedResultName: result.singleModeResult && result.singleModeResult.selectedResultName || "",
+				targetPageName: result.singleModeResult && result.singleModeResult.targetPageName || "",
+				customResultText: result.singleModeResult && result.singleModeResult.customResultText || "",
+				timestamp: Date.now()
+			};
+			window.localStorage.setItem("xfdc-editconflict-data", JSON.stringify(data));
+		} catch(e) { /* localStorage not available, silently fail */ }
+	}
+
 	transform(page) {
 		if ( this.model.aborted ) return rejection("aborted");
 
@@ -40,22 +59,30 @@ export default class CloseDiscussion extends TaskItemController {
 		}
 		// Check for edit conflict based on start time (only possible for venues with individual subpages)
 		if ( this.model.venue.hasIndividualSubpages && config.startTime < new Date(page.revisions[0].timestamp) ) {
-			this.model.addError("Bewerkingsconflict gedetecteerd");
+			this.saveStateToLocalStorage();
+			this.model.addError("Bewerkingsconflict gedetecteerd (gegevens opgeslagen, herlaad de pagina)");
 			return rejection("abort");
 		}
 		// Check for possible edit conflict based on section heading
 		const section_heading = page.content.slice(0, page.content.indexOf("\n"));
 		const sectionHeadingText = CloseDiscussion.sectionHeadingText(section_heading);
 		if ( sectionHeadingText !== this.model.discussion.sectionHeader ) {
-			this.model.addError(`Mogelijk bewerkingsconflict gedetecteerd, sectie gevonden: "${sectionHeadingText}"`);
+			this.saveStateToLocalStorage();
+			this.model.addError(`Mogelijk bewerkingsconflict gedetecteerd, sectie gevonden: "${sectionHeadingText}" (gegevens opgeslagen, herlaad de pagina)`);
 			return rejection("abort");
 		}
 
 		const xfd_close_top = this.model.venue.wikitext.closeTop;
-		const xfd_close_bottom = this.model.venue.wikitext.closeBottom
+		let xfd_close_bottom = this.model.venue.wikitext.closeBottom
 			.replace(/__RESULT__/, this.model.result.getResultText() || "&thinsp;")
 			.replace(/__TO_TARGET__/, this.model.result.getFormattedTarget({prepend: " naar "}))
 			.replace(/__RATIONALE__/, this.model.result.getFormattedRationale("punctuated") || ".");
+
+		// Special handling for withdrawn: just wrapper templates, no result text
+		const selectedResult = this.model.result.singleModeResult && this.model.result.singleModeResult.selectedResult;
+		if (selectedResult && selectedResult.name === "withdrawn") {
+			xfd_close_bottom = "{{einde}}";
+		}
 		let section_content = page.content.trim();
 		let trailing_su = "";
 		// Check for {{su}} or {{sessie uitgevoerd}} at the very end of the section content
